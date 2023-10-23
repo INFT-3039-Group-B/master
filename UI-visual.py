@@ -4,18 +4,23 @@ import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import base64
 import pandas as pd
-import io
-import os
+import plotly.express as px
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-import plotly.express as px
 from scipy.interpolate import make_interp_spline
 import numpy as np
 
 # Create a Dash web application
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+# Load your dataset
+df = pd.read_csv('1191 preprocessed.csv')  # Replace with your dataset file
 
+df_time_serie = pd.read_csv('master_date_scoreSumed.csv')  # Replace with dataset file
+df_time_serie['Date'] = pd.to_datetime(df_time_serie['Date'], format='%Y-%m-%d', errors='coerce')
+
+# Get unique years from your dataset
+available_years = ['All Years'] + df['Year'].unique().tolist()
 
 # Define CSS styles to enhance the appearance
 app.layout = dbc.Tabs([
@@ -117,17 +122,25 @@ app.layout = dbc.Tabs([
                 ],
                 value='word-cloud'
             ),
-            dcc.Graph(id='visualization-graph'),
-        ], className="tab-content", style={'background-color': '#EFFBFB', 'padding': '20px', 'border-radius': '10px'}),
+            dbc.Row([
+                dbc.Col(dcc.Dropdown(
+                    id='year-dropdown',
+                    options=[{'label': year, 'value': year} for year in available_years],
+                    value='All Years'  # Default to "All Years"
+                )),
+            ]),
+            dcc.Graph(
+                id='visualization-graph',
+                style={'width': '75%', 'height': '550px'},  # Adjust the height as needed
+            ),
+        ], style={'background-color': '#EFFBFB', 'padding': '20px', 'border-radius': '10px'}),
     ]),
 ])
 
 @app.callback(
     Output("download-data", "data"),
-    Input("export-processed-button", "n_clicks"),
     Input("upload-data", "filename"),
     Input("upload-data", "contents"),
-    prevent_initial_call=True,
 )
 def download_uploaded_data(filename, contents):
     if filename is not None:
@@ -158,23 +171,18 @@ def download_uploaded_sentiment_data(filename, contents):
         return {"content": decoded, "filename": filename}
 
 @app.callback(
-    Output('output-sentiment', 'children'),
-    Input('analyze-button', 'n_clicks'),
-    State('input-text', 'value')
-)
-def analyze_sentiment(n_clicks, input_text):
-    # Perform sentiment analysis here and return the result
-    return "Sentiment: Positive"  # Replace with your analysis result
-
-def download_processed_data(n_clicks):
-    # Replace this with the processed data download logic
-    return {"content": b"", "filename": "processed_data.csv"}
-
-@app.callback(
     Output('visualization-graph', 'figure'),
-    Input('visualization-dropdown', 'value')
+    Input('visualization-dropdown', 'value'),
+    Input('year-dropdown', 'value')
 )
-def update_visualization(selected_option):
+def update_visualization(selected_option, selected_year):
+    if selected_year == 'All Years':
+        filtered_df = df  # No filtering by year
+        filtered_df_time_serie = df_time_serie  # # No filtering by year
+    else:
+        filtered_df = df[df['Year'] == selected_year]
+        filtered_df_time_serie = df_time_serie[df_time_serie['Date'].dt.year == selected_year]
+
     if selected_option == 'word-cloud':
         # Generate and return a Word Cloud visualization
         wordcloud_data = generate_wordcloud()
@@ -185,17 +193,16 @@ def update_visualization(selected_option):
         return network_data
     elif selected_option == 'time-series':
         # Generate and return a Time Series visualization
-        time_series_data = generate_time_series()
+        time_series_data = generate_time_series(filtered_df_time_serie)
         return time_series_data
     elif selected_option == 'tree-map':
         # Generate and return a Tree Map visualization
-        tree_map_data = generate_tree_map()
+        tree_map_data = generate_tree_map(filtered_df)
         return tree_map_data
     elif selected_option == 'pie-chart':
         # Generate and return a Pie Chart visualization
         pie_chart_data = generate_pie_chart()
         return pie_chart_data
-    
 def generate_wordcloud():
     # Generate Word Cloud data here
         # Generate and return a Pie Chart visualization
@@ -239,12 +246,12 @@ def generate_network_graph():
     return pie_chart_data
 
 
-def generate_time_series():
-    df = pd.read_csv('master_date_scoreSumed.csv')  # Replace with dataset file
-    df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d', errors='coerce')
+def generate_time_series(df):
+
 
     # Sort the DataFrame by 'Date' to ensure it's in the right order for plotting
     df = df.sort_values(by='Date')
+    
 
     # Create a new DataFrame for the smoothed curve
     smooth_df = pd.DataFrame()
@@ -276,14 +283,10 @@ def generate_time_series():
     return fig
 
 
-def generate_tree_map():
+def generate_tree_map(df):
 
-    df = pd.read_csv('1191 preprocessed.csv')  # Replace with dataset file
-    # Create a Tree Map
-    df_2000 = df[df['Year'] == 2000]
-
-    # Create a Tree Map for the year 2000
-    tree_map_fig = px.treemap(df_2000, path=['Year', 'Label'], color='Label')
+    # Create a Tree Map for the selected year
+    tree_map_fig = px.treemap(df, path=['Year', 'Label'], color='Label')
     return tree_map_fig
 
 def generate_pie_chart():
@@ -304,8 +307,17 @@ def generate_pie_chart():
             'title': 'Distribution of Labels'
         }
     }
-    return pie_chart_data
+    return pie_chart_data    
 
+
+@app.callback(
+    Output('output-sentiment', 'children'),
+    Input('analyze-button', 'n_clicks'),
+    State('input-text', 'value')
+)
+def analyze_sentiment(n_clicks, input_text):
+    # Perform sentiment analysis here and return the result
+    return "Sentiment: Positive"  # Replace with your analysis result
 
 if __name__ == '__main__':
-    app.run_server(debug=True,port=8050)
+    app.run_server(debug = True, port=8052)
