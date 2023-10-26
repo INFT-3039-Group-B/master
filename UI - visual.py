@@ -9,12 +9,16 @@ import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 from scipy.interpolate import make_interp_spline
 import numpy as np
+import base64
+import io
 
 # Create a Dash web application
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # Load your dataset
 df = pd.read_csv('1191 preprocessed.csv')  # Replace with your dataset file
+
+df_wordCloud = pd.read_csv('1191_cleaned.csv')  # Replace with your dataset file
 
 df_time_serie = pd.read_csv('master_date_scoreSumed.csv')  # Replace with dataset file
 df_time_serie['Date'] = pd.to_datetime(df_time_serie['Date'], format='%Y-%m-%d', errors='coerce')
@@ -131,7 +135,7 @@ app.layout = dbc.Tabs([
             ]),
             dcc.Graph(
                 id='visualization-graph',
-                style={'width': '75%', 'height': '550px'},  # Adjust the height as needed
+                style={'width': '100%', 'height': '700px'},  # Adjust the height as needed
             ),
         ], style={'background-color': '#EFFBFB', 'padding': '20px', 'border-radius': '10px'}),
     ]),
@@ -176,6 +180,7 @@ def download_uploaded_sentiment_data(filename, contents):
     Input('year-dropdown', 'value')
 )
 def update_visualization(selected_option, selected_year):
+
     if selected_year == 'All Years':
         filtered_df = df  # No filtering by year
         filtered_df_time_serie = df_time_serie  # # No filtering by year
@@ -184,9 +189,15 @@ def update_visualization(selected_option, selected_year):
         filtered_df_time_serie = df_time_serie[df_time_serie['Date'].dt.year == selected_year]
 
     if selected_option == 'word-cloud':
-        # Generate and return a Word Cloud visualization
-        wordcloud_data = generate_wordcloud()
+
+        df_wordCloud['Text'] = df_wordCloud['Text'].apply(str_text)
+
+        all_text = ' '.join(df_wordCloud['Text'])
+
+        wordcloud_data = generate_wordcloud(all_text)
+
         return wordcloud_data
+
     elif selected_option == 'network-graph':
         # Generate and return a Network Graph visualization
         network_data = generate_network_graph()
@@ -203,26 +214,71 @@ def update_visualization(selected_option, selected_year):
         # Generate and return a Pie Chart visualization
         pie_chart_data = generate_pie_chart()
         return pie_chart_data
-def generate_wordcloud():
-    # Generate Word Cloud data here
-        # Generate and return a Pie Chart visualization
-    df = pd.read_csv('master_date_score.csv')  # Replace with your dataset file
-    label_counts = df['label'].value_counts()
 
-    labels = label_counts.index
-    values = label_counts.values
+def str_text(text):
+    text = str(text)
+    return text
 
-    pie_chart_data = {
+
+
+def generate_wordcloud(content):
+
+    # Generate the word cloud
+    wordcloud = WordCloud(width=1000, height=600, background_color="white").generate(content)
+
+    # Create a BytesIO buffer to save the word cloud image
+    buffer = io.BytesIO()
+    
+    # Save the word cloud image to the buffer
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.title("Word Cloud")
+    plt.savefig(buffer, format="png")
+    buffer.seek(0)
+    
+    # Encode the image as base64
+    wordcloud_base64 = base64.b64encode(buffer.read()).decode()
+
+    return {
         'data': [{
-            'type': 'pie',
-            'labels': labels,
-            'values': values,
+            'x': [0],
+            'y': [0],
+            'mode': 'text',
+            'text': ['Word Cloud'],
+            'textfont': {
+                'size': 24,
+                'color': 'black'  # Customize text color
+            }
         }],
         'layout': {
-            'title': 'Distribution of Labels'
+            'images': [
+                {
+                    'source': 'data:image/png;base64,{}'.format(wordcloud_base64),
+                    'x': 0,
+                    'y': 0,
+                    'xref': 'x',
+                    'yref': 'y',
+                    'sizex': 1,
+                    'sizey': 1,
+                    'xanchor': 'center',
+                    'yanchor': 'middle'
+                }
+            ],
+            'width': 1000,
+            'height': 600,
+            'xaxis': {
+                'showgrid': False,
+                'showticklabels': False,
+                'zeroline': False
+            },
+            'yaxis': {
+                'showgrid': False,
+                'showticklabels': False,
+                'zeroline': False
+            }
         }
     }
-    return pie_chart_data
 
 def generate_network_graph():
     # Generate Network Graph data here
@@ -320,4 +376,6 @@ def analyze_sentiment(n_clicks, input_text):
     return "Sentiment: Positive"  # Replace with your analysis result
 
 if __name__ == '__main__':
-    app.run_server(debug = True, port=8052)
+    app.run_server(debug = True, threaded=True, port=8052)  # By setting threaded=True, 
+                                                            # indicating that the Dash app should be run in a multi-threaded mode, 
+                                                            # and it may help mitigate the warning related to Matplotlib. 
