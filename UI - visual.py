@@ -11,17 +11,24 @@ from scipy.interpolate import make_interp_spline
 import numpy as np
 import base64
 import io
+import networkx as nx  # for network graph
+import plotly.graph_objs as go # for network graph
 
 # Create a Dash web application
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # Load your dataset
-df = pd.read_csv('1191 preprocessed.csv')  # Replace with your dataset file
+df = pd.read_csv('1191 preprocessed.csv')  # Replace with dataset file
 
-df_wordCloud = pd.read_csv('1191_cleaned.csv')  # Replace with your dataset file
+df_wordCloud = pd.read_csv('1191_cleaned.csv')  # Replace with dataset file
 
 df_time_serie = pd.read_csv('master_date_scoreSumed.csv')  # Replace with dataset file
 df_time_serie['Date'] = pd.to_datetime(df_time_serie['Date'], format='%Y-%m-%d', errors='coerce')
+
+df_network = df[['Sender','To','Year']]
+
+df_pie = pd.read_csv('master_date_score.csv')   # Replace with dataset file
+df_pie['Date'] = pd.to_datetime(df_pie['Date'], format='%d/%m/%Y', errors='coerce') 
 
 # Get unique years from your dataset
 available_years = ['All Years'] + df['Year'].unique().tolist()
@@ -184,9 +191,13 @@ def update_visualization(selected_option, selected_year):
     if selected_year == 'All Years':
         filtered_df = df  # No filtering by year
         filtered_df_time_serie = df_time_serie  # # No filtering by year
+        filtered_df_network = df_network
+        filtered_df_pie = df_pie
     else:
         filtered_df = df[df['Year'] == selected_year]
         filtered_df_time_serie = df_time_serie[df_time_serie['Date'].dt.year == selected_year]
+        filtered_df_network = df_network[df_network['Year'] == selected_year]
+        filtered_df_pie = df_pie[df_pie['Date'].dt.year == selected_year]
 
     if selected_option == 'word-cloud':
 
@@ -200,19 +211,22 @@ def update_visualization(selected_option, selected_year):
 
     elif selected_option == 'network-graph':
         # Generate and return a Network Graph visualization
-        network_data = generate_network_graph()
+        network_data = generate_network_graph(filtered_df_network)
         return network_data
+    
     elif selected_option == 'time-series':
         # Generate and return a Time Series visualization
         time_series_data = generate_time_series(filtered_df_time_serie)
         return time_series_data
+    
     elif selected_option == 'tree-map':
         # Generate and return a Tree Map visualization
         tree_map_data = generate_tree_map(filtered_df)
         return tree_map_data
+    
     elif selected_option == 'pie-chart':
         # Generate and return a Pie Chart visualization
-        pie_chart_data = generate_pie_chart()
+        pie_chart_data = generate_pie_chart(filtered_df_pie)
         return pie_chart_data
 
 def str_text(text):
@@ -280,26 +294,71 @@ def generate_wordcloud(content):
         }
     }
 
-def generate_network_graph():
-    # Generate Network Graph data here
-        # Generate and return a Pie Chart visualization
-    df = pd.read_csv('master_date_score.csv')  # Replace with your dataset file
-    label_counts = df['label'].value_counts()
 
-    labels = label_counts.index
-    values = label_counts.values
+def generate_network_graph(df):
+    G = nx.DiGraph()
+    for index, row in df.iterrows():
+        sender = row["Sender"]
+        recipients = row["To"].split(", ")
+        G.add_node(sender)
+        for recipient in recipients:
+            G.add_node(recipient)
+            G.add_edge(sender, recipient)
 
-    pie_chart_data = {
-        'data': [{
-            'type': 'pie',
-            'labels': labels,
-            'values': values,
-        }],
-        'layout': {
-            'title': 'Distribution of Labels'
-        }
-    }
-    return pie_chart_data
+    pos = nx.spring_layout(G, seed=42)
+    edges = G.edges()
+    edge_x = []
+    edge_y = []
+    for edge in edges:
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.append(x0)
+        edge_x.append(x1)
+        edge_x.append(None)
+        edge_y.append(y0)
+        edge_y.append(y1)
+        edge_y.append(None)
+
+    node_x = []
+    node_y = []
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=0.5, color='#888'),
+        hoverinfo='none',
+        mode='lines')
+
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers',
+        hoverinfo='text',
+        marker=dict(
+            showscale=True,
+            colorscale='YlGnBu',
+            size=10,
+            colorbar=dict(
+                thickness=15,
+                title='Node Connections',
+                xanchor='left',
+                titleside='right'
+            )
+        )
+    )
+
+    node_text = list(G.nodes())
+    node_trace.text = node_text
+
+    fig = go.Figure(data=[edge_trace, node_trace],
+                    layout=go.Layout(
+                        showlegend=False,
+                        hovermode='closest',
+                        margin=dict(b=0, l=0, r=0, t=0)
+                    ))
+    return fig
 
 
 def generate_time_series(df):
@@ -345,9 +404,9 @@ def generate_tree_map(df):
     tree_map_fig = px.treemap(df, path=['Year', 'Label'], color='Label')
     return tree_map_fig
 
-def generate_pie_chart():
+def generate_pie_chart(df):
     # Generate and return a Pie Chart visualization
-    df = pd.read_csv('master_date_score.csv')  # Replace with dataset file
+    
     label_counts = df['label'].value_counts()
 
     labels = label_counts.index
@@ -376,6 +435,6 @@ def analyze_sentiment(n_clicks, input_text):
     return "Sentiment: Positive"  # Replace with your analysis result
 
 if __name__ == '__main__':
-    app.run_server(debug = True, threaded=True, port=8052)  # By setting threaded=True, 
+    app.run_server(debug = True, threaded=True, port=8051)  # By setting threaded=True, 
                                                             # indicating that the Dash app should be run in a multi-threaded mode, 
                                                             # and it may help mitigate the warning related to Matplotlib. 
