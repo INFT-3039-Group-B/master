@@ -321,31 +321,37 @@ def generate_network_graph(df):
 
     node_x = []
     node_y = []
+    node_degrees = []  # To store the number of connextions for each node
     for node in G.nodes():
         x, y = pos[node]
         node_x.append(x)
         node_y.append(y)
+        node_degrees.append(len(list(G.neighbors(node))) + 1)  # Add 1 to avoid zero degree
 
+    # Define a color scale for the nodes based on degrees
+    color_scale = 'Viridis'
+    
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
         line=dict(width=0.5, color='#888'),
         hoverinfo='none',
         mode='lines')
-
+    
     node_trace = go.Scatter(
         x=node_x, y=node_y,
         mode='markers',
         hoverinfo='text',
         marker=dict(
             showscale=True,
-            colorscale='YlGnBu',
+            colorscale=color_scale,
             size=10,
             colorbar=dict(
                 thickness=15,
                 title='Node Connections',
                 xanchor='left',
                 titleside='right'
-            )
+            ),
+            color=node_degrees  # Use the degrees as the color values
         )
     )
 
