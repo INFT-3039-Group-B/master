@@ -298,11 +298,11 @@ def generate_wordcloud(content):
 def generate_network_graph(df):
     G = nx.DiGraph()
     for index, row in df.iterrows():
-        sender = row["Sender"]
-        recipients = row["To"].split(", ")
-        G.add_node(sender)
+        sender = row["Sender"]       # get sender
+        recipients = row["To"].split(", ")        # get recipients
+        G.add_node(sender)            # add sender to nodes 
         for recipient in recipients:
-            G.add_node(recipient)
+            G.add_node(recipient)             # add recipient to the nodes
             G.add_edge(sender, recipient)
 
     pos = nx.spring_layout(G, seed=42)
@@ -405,9 +405,21 @@ def generate_time_series(df):
 
 
 def generate_tree_map(df):
+    company_list = []
+    for index, row in df.iterrows():
+        
+        recipients = row["To"].split(", ")  # get a list of recipients
+        
+        for recipient in recipients:
+            parts = recipient.split("@")    # split the email by @
+            company_name = parts[1].split(".")[0]   # get the company name which is the string after @ before .
+            if company_name != 'enron':
+                company_list.append(company_name)   # add company name if it's not enron
+
+    df_companies = pd.DataFrame({'Company Name': company_list})   # make a dataframe for plotting
 
     # Create a Tree Map for the selected year
-    tree_map_fig = px.treemap(df, path=['Year', 'Label'], color='Label')
+    tree_map_fig = px.treemap(df_companies, path=['Company Name'], color='Company Name')
     return tree_map_fig
 
 def generate_pie_chart(df):
