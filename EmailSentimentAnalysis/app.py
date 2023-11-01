@@ -817,22 +817,23 @@ def generate_time_series(df):
 def generate_tree_map(df):
     company_list = []
     for index, row in df.iterrows():
+    
+        if row['To'] != '':
+            recipients = row["To"].split(", ")  # get a list of recipients
         
-        recipients = row["To"].split(", ")  # get a list of recipients
-        
-        for recipient in recipients:
-            parts = recipient.split("@")    # split the email by @
+            for recipient in recipients:
+                parts = recipient.split("@")    # split the email by @
 
             #company_name = parts[1].split(".")[0]   # get the company name which is the string after @ before .
 
-            try:
-                company_name = parts[1].split(".")[0]
-            except IndexError:
-                company_name = ''
+                try:
+                    company_name = parts[1].split(".")[0]
+                except IndexError:
+                    company_name = ''
 
 
-            if company_name != 'enron':
-                company_list.append(company_name)   # add company name if it's not enron
+                if company_name != 'enron':
+                    company_list.append(company_name)   # add company name if it's not enron
 
     df_companies = pd.DataFrame({'Company Name': company_list})   # make a dataframe for plotting
 
