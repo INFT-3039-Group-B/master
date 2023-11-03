@@ -142,7 +142,7 @@ app.layout = dbc.Tabs([
             ]),
             dcc.Graph(
                 id='visualization-graph',
-                style={'width': '100%', 'height': '700px'},  # Adjust the height as needed
+                style={'width': '100%', 'height': '100vh'},  # Adjust the height as needed
             ),
         ], style={'background-color': '#EFFBFB', 'padding': '20px', 'border-radius': '10px'}),
     ]),
@@ -238,16 +238,16 @@ def str_text(text):
 def generate_wordcloud(content):
 
     # Generate the word cloud
-    wordcloud = WordCloud(width=1000, height=600, background_color="white").generate(content)
+    wordcloud = WordCloud(width=2000, height=1200, background_color="white").generate(content)
 
     # Create a BytesIO buffer to save the word cloud image
     buffer = io.BytesIO()
     
     # Save the word cloud image to the buffer
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(20, 12))
     plt.imshow(wordcloud, interpolation="bilinear")
     plt.axis("off")
-    plt.title("Word Cloud")
+    #plt.title("Word Cloud", fontsize=36)
     plt.savefig(buffer, format="png")
     buffer.seek(0)
     
@@ -270,17 +270,17 @@ def generate_wordcloud(content):
                 {
                     'source': 'data:image/png;base64,{}'.format(wordcloud_base64),
                     'x': 0,
-                    'y': 0,
+                    'y': 1,
                     'xref': 'x',
-                    'yref': 'y',
+                    'yref': 'paper',
                     'sizex': 1,
                     'sizey': 1,
                     'xanchor': 'center',
-                    'yanchor': 'middle'
+                    'yanchor': 'top'
                 }
             ],
-            'width': 1000,
-            'height': 600,
+            #'width': 1000,
+            #'height': 600,
             'xaxis': {
                 'showgrid': False,
                 'showticklabels': False,
